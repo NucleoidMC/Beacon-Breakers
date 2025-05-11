@@ -92,7 +92,7 @@ public class PlayerEntry {
 		this.player.vanishCursedItems();
 		this.player.getInventory().dropAll();
 
-		this.player.dropXp(this.player.getServerWorld(), source.getAttacker());
+		this.player.dropExperience(this.player.getServerWorld(), source.getAttacker());
 		this.player.dropShoulderEntities();
 	}
 
