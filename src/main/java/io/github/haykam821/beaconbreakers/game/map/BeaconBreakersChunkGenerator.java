@@ -103,7 +103,7 @@ public final class BeaconBreakersChunkGenerator extends GameChunkGenerator imple
 		for (int x = 0; x < 16; x++) {
 			for (int z = 0; z < 16; z++) {
 				mutablePos.set(x + pos.getX(), topY, z + pos.getZ());
-				chunk.setBlockState(mutablePos, BARRIER, false);
+				chunk.setBlockState(mutablePos, BARRIER);
 			}
 		}
 
@@ -112,7 +112,7 @@ public final class BeaconBreakersChunkGenerator extends GameChunkGenerator imple
 			for (int x = 0; x < 16; x++) {
 				for (int y = bottomY; y < topY; y++) {
 					mutablePos.set(x + pos.getX(), y, pos.getZ());
-					chunk.setBlockState(mutablePos, BARRIER, false);
+					chunk.setBlockState(mutablePos, BARRIER);
 				}
 			}
 		}
@@ -122,7 +122,7 @@ public final class BeaconBreakersChunkGenerator extends GameChunkGenerator imple
 			for (int z = 0; z < 16; z++) {
 				for (int y = bottomY; y < topY; y++) {
 					mutablePos.set(pos.getX() + 15, y, z + pos.getZ());
-					chunk.setBlockState(mutablePos, BARRIER, false);
+					chunk.setBlockState(mutablePos, BARRIER);
 				}
 			}
 		}
@@ -132,7 +132,7 @@ public final class BeaconBreakersChunkGenerator extends GameChunkGenerator imple
 			for (int x = 0; x < 16; x++) {
 				for (int y = bottomY; y < topY; y++) {
 					mutablePos.set(x + pos.getX(), y, pos.getZ() + 15);
-					chunk.setBlockState(mutablePos, BARRIER, false);
+					chunk.setBlockState(mutablePos, BARRIER);
 				}
 			}
 		}
@@ -142,7 +142,7 @@ public final class BeaconBreakersChunkGenerator extends GameChunkGenerator imple
 			for (int z = 0; z < 16; z++) {
 				for (int y = bottomY; y < topY; y++) {
 					mutablePos.set(pos.getX(), y, z + pos.getZ());
-					chunk.setBlockState(mutablePos, BARRIER, false);
+					chunk.setBlockState(mutablePos, BARRIER);
 				}
 			}
 		}
