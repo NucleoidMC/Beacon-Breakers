@@ -6,12 +6,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.scores.PlayerTeam;
 import io.github.haykam821.beaconbreakers.game.phase.BeaconBreakersActivePhase;
 import io.github.haykam821.beaconbreakers.game.player.PlayerEntry;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeam;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamConfig;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamKey;
@@ -36,7 +35,7 @@ public class MultipleTeamEntry extends TeamEntry {
 	// Messages
 
 	@Override
-	protected Text getName() {
+	protected Component getName() {
 		return this.team.config().name();
 	}
 
@@ -46,23 +45,23 @@ public class MultipleTeamEntry extends TeamEntry {
 	}
 
 	@Override
-	public MutableText getCannotBreakOwnBeaconMessage() {
-		return Text.translatable("text.beaconbreakers.cannot_break_own_beacon.team");
+	public MutableComponent getCannotBreakOwnBeaconMessage() {
+		return Component.translatable("text.beaconbreakers.cannot_break_own_beacon.team");
 	}
 
 	@Override
-	protected MutableText getTattleMessage() {
-		return Text.translatable("text.beaconbreakers.tattle.team", this.getName());
+	protected MutableComponent getTattleMessage() {
+		return Component.translatable("text.beaconbreakers.tattle.team", this.getName());
 	}
 
 	@Override
-	protected MutableText getOwnTattleMessage() {
-		return Text.translatable("text.beaconbreakers.tattle.own.team");
+	protected MutableComponent getOwnTattleMessage() {
+		return Component.translatable("text.beaconbreakers.tattle.own.team");
 	}
 
 	@Override
-	public MutableText getWinMessage() {
-		return Text.translatable("text.beaconbreakers.win.team", this.getName());
+	public MutableComponent getWinMessage() {
+		return Component.translatable("text.beaconbreakers.win.team", this.getName());
 	}
 
 	// Players
@@ -96,7 +95,7 @@ public class MultipleTeamEntry extends TeamEntry {
 	public static TeamEntry of(BeaconBreakersActivePhase phase, TeamManager teamManager, GameTeam initialTeam) {
 		GameTeamConfig teamConfig = GameTeamConfig.builder(initialTeam.config())
 			.setFriendlyFire(false)
-			.setCollision(Team.CollisionRule.PUSH_OTHER_TEAMS)
+			.setCollision(PlayerTeam.CollisionRule.PUSH_OTHER_TEAMS)
 			.build();
 
 		GameTeam team = initialTeam.withConfig(teamConfig);

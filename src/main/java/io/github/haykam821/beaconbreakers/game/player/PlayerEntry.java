@@ -2,31 +2,30 @@ package io.github.haykam821.beaconbreakers.game.player;
 
 import java.util.Optional;
 import java.util.UUID;
-
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Block;
 import io.github.haykam821.beaconbreakers.Main;
 import io.github.haykam821.beaconbreakers.game.player.team.TeamEntry;
-import net.minecraft.block.Block;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.entry.RegistryEntryList;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.api.util.InventoryUtil;
 
 public class PlayerEntry {
-	private ServerPlayerEntity player;
+	private ServerPlayer player;
 	private UUID uuid;
-	private Text name;
+	private Component name;
 
 	private final TeamEntry team;
 
-	public PlayerEntry(ServerPlayerEntity player, TeamEntry team) {
+	public PlayerEntry(ServerPlayer player, TeamEntry team) {
 		this.player = player;
 		this.team = team;
 	}
@@ -39,17 +38,17 @@ public class PlayerEntry {
 			return this.team.getPhase().getInvulnerability() == 0;
 		}
 
-		return !this.team.getPhase().getMap().getBox().contains(player.getBlockPos());
+		return !this.team.getPhase().getMap().getBox().isInside(player.blockPosition());
 	}
 
 	public void removePlayer() {
-		this.uuid = this.player.getUuid();
+		this.uuid = this.player.getUUID();
 		this.name = this.player.getDisplayName();
 
 		this.player = null;
 	}
 
-	public void restorePlayer(ServerPlayerEntity player) {
+	public void restorePlayer(ServerPlayer player) {
 		this.uuid = null;
 		this.name = null;
 
@@ -60,13 +59,13 @@ public class PlayerEntry {
 		if (this.player == null) return;
 		if (!(this.team.getBeacon() instanceof BeaconPlacement.Unplaced)) return;
 
-		RegistryWrapper.WrapperLookup registries = this.player.getWorld().getRegistryManager();
-		RegistryWrapper<Block> blocks = registries.getOrThrow(RegistryKeys.BLOCK);
-		Optional<RegistryEntryList.Named<Block>> maybeBeacons = blocks.getOptional(Main.RESPAWN_BEACONS);
+		HolderLookup.Provider registries = this.player.level().registryAccess();
+		HolderLookup<Block> blocks = registries.lookupOrThrow(Registries.BLOCK);
+		Optional<HolderSet.Named<Block>> maybeBeacons = blocks.get(Main.RESPAWN_BEACONS);
 		if (maybeBeacons.isPresent()) {
-			Optional<RegistryEntry<Block>> maybeBeacon = maybeBeacons.get().getRandom(this.player.getRandom());
+			Optional<Holder<Block>> maybeBeacon = maybeBeacons.get().getRandomElement(this.player.getRandom());
 			if (maybeBeacon.isPresent()) {
-				this.player.giveItemStack(new ItemStack(maybeBeacon.get().value()));
+				this.player.addItem(new ItemStack(maybeBeacon.get().value()));
 			}
 		}
 	}
@@ -74,7 +73,7 @@ public class PlayerEntry {
 	public void initializePlayer() {
 		if (this.player == null) return;
 
-		this.player.changeGameMode(GameMode.SURVIVAL);
+		this.player.setGameMode(GameType.SURVIVAL);
 
 		InventoryUtil.clear(player);
 
@@ -84,29 +83,29 @@ public class PlayerEntry {
 
 		int invulnerability = this.team.getPhase().getInvulnerability();
 
-		this.player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, invulnerability, 1, true, false));
-		this.player.addStatusEffect(new StatusEffectInstance(StatusEffects.SATURATION, invulnerability, 127, true, false));
+		this.player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, invulnerability, 1, true, false));
+		this.player.addEffect(new MobEffectInstance(MobEffects.SATURATION, invulnerability, 127, true, false));
 	}
 
 	public void dropInventory(DamageSource source) {
-		this.player.vanishCursedItems();
+		this.player.destroyVanishingCursedItems();
 		this.player.getInventory().dropAll();
 
-		this.player.dropExperience(this.player.getServerWorld(), source.getAttacker());
-		this.player.dropShoulderEntities();
+		this.player.dropExperience(this.player.level(), source.getEntity());
+		this.player.removeEntitiesOnShoulder();
 	}
 
-	public void sendMessage(Text message, boolean overlay) {
+	public void sendMessage(Component message, boolean overlay) {
 		if (this.player != null) {
-			this.player.sendMessage(message, overlay);
+			this.player.sendSystemMessage(message, overlay);
 		}
 	}
 
-	public Text getName() {
+	public Component getName() {
 		return this.player == null ? this.name : this.player.getDisplayName();
 	}
 
-	public ServerPlayerEntity getPlayer() {
+	public ServerPlayer getPlayer() {
 		return this.player;
 	}
 

@@ -8,8 +8,9 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.haykam821.beaconbreakers.game.map.BeaconBreakersMapConfig;
 import net.minecraft.SharedConstants;
-import net.minecraft.util.math.intprovider.ConstantIntProvider;
-import net.minecraft.util.math.intprovider.IntProvider;
+import net.minecraft.util.valueproviders.ConstantInt;
+import net.minecraft.util.valueproviders.IntProvider;
+import net.minecraft.util.valueproviders.IntProviders;
 import xyz.nucleoid.plasmid.api.game.common.config.WaitingLobbyConfig;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamList;
 
@@ -19,7 +20,7 @@ public class BeaconBreakersConfig {
 			WaitingLobbyConfig.CODEC.fieldOf("players").forGetter(BeaconBreakersConfig::getPlayerConfig),
 			BeaconBreakersMapConfig.CODEC.fieldOf("map").forGetter(BeaconBreakersConfig::getMapConfig),
 			GameTeamList.CODEC.optionalFieldOf("teams").forGetter(BeaconBreakersConfig::getTeams),
-			IntProvider.NON_NEGATIVE_CODEC.optionalFieldOf("ticks_until_close", ConstantIntProvider.create(SharedConstants.TICKS_PER_SECOND * 10)).forGetter(BeaconBreakersConfig::getTicksUntilClose),
+			IntProviders.NON_NEGATIVE_CODEC.optionalFieldOf("ticks_until_close", ConstantInt.of(SharedConstants.TICKS_PER_SECOND * 10)).forGetter(BeaconBreakersConfig::getTicksUntilClose),
 			Codec.INT.optionalFieldOf("invulnerability", 2 * 60 * 20).forGetter(BeaconBreakersConfig::getInvulnerability),
 			Codec.BOOL.optionalFieldOf("keep_inventory", false).forGetter(BeaconBreakersConfig::shouldKeepInventory),
 			Codec.BOOL.optionalFieldOf("allow_self_breaking", false).forGetter(BeaconBreakersConfig::shouldAllowSelfBreaking)

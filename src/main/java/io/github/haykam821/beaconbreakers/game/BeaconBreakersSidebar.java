@@ -2,7 +2,7 @@ package io.github.haykam821.beaconbreakers.game;
 
 import io.github.haykam821.beaconbreakers.game.phase.BeaconBreakersActivePhase;
 import io.github.haykam821.beaconbreakers.game.player.team.TeamEntry;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 import xyz.nucleoid.plasmid.api.game.common.GlobalWidgets;
 import xyz.nucleoid.plasmid.api.game.common.widget.SidebarWidget;
 
@@ -11,7 +11,7 @@ public class BeaconBreakersSidebar {
 	private final BeaconBreakersActivePhase phase;
 
 	public BeaconBreakersSidebar(GlobalWidgets widgets, BeaconBreakersActivePhase phase) {
-		Text name = Text.translatable("gameType.beaconbreakers.beacon_breakers").styled(style -> {
+		Component name = Component.translatable("gameType.beaconbreakers.beacon_breakers").withStyle(style -> {
 			return style.withBold(true);
 		});
 		this.widget = widgets.addSidebar(name);

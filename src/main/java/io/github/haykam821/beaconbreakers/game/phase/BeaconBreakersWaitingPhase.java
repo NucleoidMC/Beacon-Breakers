@@ -2,15 +2,15 @@ package io.github.haykam821.beaconbreakers.game.phase;
 
 import io.github.haykam821.beaconbreakers.game.BeaconBreakersConfig;
 import io.github.haykam821.beaconbreakers.game.map.BeaconBreakersMap;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.RandomSeed;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.dimension.DimensionType;
-import xyz.nucleoid.fantasy.RuntimeWorldConfig;
+import net.minecraft.core.Holder;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.levelgen.RandomSupport;
+import net.minecraft.world.phys.Vec3;
+import xyz.nucleoid.fantasy.RuntimeLevelConfig;
 import xyz.nucleoid.plasmid.api.game.GameOpenContext;
 import xyz.nucleoid.plasmid.api.game.GameOpenProcedure;
 import xyz.nucleoid.plasmid.api.game.GameResult;
@@ -29,14 +29,14 @@ import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 
 public class BeaconBreakersWaitingPhase {
 	private final GameSpace gameSpace;
-	private final ServerWorld world;
+	private final ServerLevel level;
 	private final TeamSelectionLobby teamSelection;
 	private final BeaconBreakersMap map;
 	private final BeaconBreakersConfig config;
 
-	public BeaconBreakersWaitingPhase(GameSpace gameSpace, ServerWorld world, TeamSelectionLobby teamSelection, BeaconBreakersMap map, BeaconBreakersConfig config) {
+	public BeaconBreakersWaitingPhase(GameSpace gameSpace, ServerLevel level, TeamSelectionLobby teamSelection, BeaconBreakersMap map, BeaconBreakersConfig config) {
 		this.gameSpace = gameSpace;
-		this.world = world;
+		this.level = level;
 		this.teamSelection = teamSelection;
 		this.map = map;
 		this.config = config;
@@ -45,18 +45,18 @@ public class BeaconBreakersWaitingPhase {
 	public static GameOpenProcedure open(GameOpenContext<BeaconBreakersConfig> context) {
 		BeaconBreakersConfig config = context.config();
 
-		RegistryEntry<DimensionType> dimensionType = config.getMapConfig().getDimensionOptions().dimensionTypeEntry();
+		Holder<DimensionType> dimensionType = config.getMapConfig().getDimensionOptions().type();
 		BeaconBreakersMap map = new BeaconBreakersMap(context.server(), config.getMapConfig(), dimensionType.value());
 
-		RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
-			.setSeed(RandomSeed.getSeed())
+		RuntimeLevelConfig levelConfig = new RuntimeLevelConfig()
+			.setSeed(RandomSupport.generateUniqueSeed())
 			.setDimensionType(dimensionType)
 			.setGenerator(map.getChunkGenerator());
 
-		return context.openWithWorld(worldConfig, (activity, world) -> {
+		return context.openWithLevel(levelConfig, (activity, level) -> {
 			TeamSelectionLobby teamSelection = config.getTeams().isPresent() ? TeamSelectionLobby.addTo(activity, config.getTeams().get()) : null;
 
-			BeaconBreakersWaitingPhase waiting = new BeaconBreakersWaitingPhase(activity.getGameSpace(), world, teamSelection, map, config);
+			BeaconBreakersWaitingPhase waiting = new BeaconBreakersWaitingPhase(activity.getGameSpace(), level, teamSelection, map, config);
 			GameWaitingLobby.addTo(activity, config.getPlayerConfig());
 
 			// Rules
@@ -79,24 +79,24 @@ public class BeaconBreakersWaitingPhase {
 	}
 
 	private GameResult requestStart() {
-		BeaconBreakersActivePhase.open(this.gameSpace, this.world, this.teamSelection, this.map, this.config);
+		BeaconBreakersActivePhase.open(this.gameSpace, this.level, this.teamSelection, this.map, this.config);
 		return GameResult.ok();
 	}
 
 	private JoinAcceptorResult onAcceptPlayers(JoinAcceptor acceptor) {
-		Vec3d spawnPos = BeaconBreakersActivePhase.getSpawnPos(this.world, this.map, this.config.getMapConfig());
-		return acceptor.teleport(this.world, spawnPos).thenRunForEach(player -> {
-			player.changeGameMode(GameMode.ADVENTURE);
+		Vec3 spawnPos = BeaconBreakersActivePhase.getSpawnPos(this.level, this.map, this.config.getMapConfig());
+		return acceptor.teleport(this.level, spawnPos).thenRunForEach(player -> {
+			player.setGameMode(GameType.ADVENTURE);
 		});
 	}
 
-	private EventResult onPlayerDamage(ServerPlayerEntity player, DamageSource source, float amount) {
+	private EventResult onPlayerDamage(ServerPlayer player, DamageSource source, float amount) {
 		return EventResult.DENY;
 	}
 
-	private EventResult onPlayerDeath(ServerPlayerEntity player, DamageSource source) {
+	private EventResult onPlayerDeath(ServerPlayer player, DamageSource source) {
 		// Respawn player
-		BeaconBreakersActivePhase.spawn(this.world, this.map, this.config.getMapConfig(), player);
+		BeaconBreakersActivePhase.spawn(this.level, this.map, this.config.getMapConfig(), player);
 		player.setHealth(player.getMaxHealth());
 		return EventResult.DENY;
 	}
