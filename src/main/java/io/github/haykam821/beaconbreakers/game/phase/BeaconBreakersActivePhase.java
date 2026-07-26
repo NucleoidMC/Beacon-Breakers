@@ -5,7 +5,34 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import io.github.haykam821.beaconbreakers.Main;
 import io.github.haykam821.beaconbreakers.game.BeaconBreakersConfig;
 import io.github.haykam821.beaconbreakers.game.BeaconBreakersSidebar;
@@ -18,37 +45,9 @@ import io.github.haykam821.beaconbreakers.game.player.PlayerEntry;
 import io.github.haykam821.beaconbreakers.game.player.team.MultipleTeamEntry;
 import io.github.haykam821.beaconbreakers.game.player.team.SingleTeamEntry;
 import io.github.haykam821.beaconbreakers.game.player.team.TeamEntry;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.RespawnAnchorBlock;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.GameRules;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.World;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.explosion.Explosion;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
-import xyz.nucleoid.plasmid.api.game.GameTexts;
+import xyz.nucleoid.plasmid.api.game.GameComponents;
 import xyz.nucleoid.plasmid.api.game.common.GlobalWidgets;
 import xyz.nucleoid.plasmid.api.game.common.team.TeamChat;
 import xyz.nucleoid.plasmid.api.game.common.team.TeamManager;
@@ -71,7 +70,7 @@ import xyz.nucleoid.stimuli.event.world.ExplosionDetonatedEvent;
 
 public class BeaconBreakersActivePhase {
 	private final GameSpace gameSpace;
-	private final ServerWorld world;
+	private final ServerLevel level;
 	private final BeaconBreakersMap map;
 	private final BeaconBreakersConfig config;
 	private final List<TeamEntry> teams;
@@ -81,9 +80,9 @@ public class BeaconBreakersActivePhase {
 	private int ticksUntilClose = -1;
 	private int invulnerability;
 
-	public BeaconBreakersActivePhase(GameSpace gameSpace, ServerWorld world, TeamSelectionLobby teamSelection, TeamManager teamManager, GlobalWidgets widgets, BeaconBreakersMap map, BeaconBreakersConfig config) {
+	public BeaconBreakersActivePhase(GameSpace gameSpace, ServerLevel level, TeamSelectionLobby teamSelection, TeamManager teamManager, GlobalWidgets widgets, BeaconBreakersMap map, BeaconBreakersConfig config) {
 		this.gameSpace = gameSpace;
-		this.world = world;
+		this.level = level;
 		this.map = map;
 		this.config = config;
 
@@ -97,7 +96,7 @@ public class BeaconBreakersActivePhase {
 		this.invulnerability = this.config.getInvulnerability();
 	}
 
-	public static void open(GameSpace gameSpace, ServerWorld world, TeamSelectionLobby teamSelection, BeaconBreakersMap map, BeaconBreakersConfig config) {
+	public static void open(GameSpace gameSpace, ServerLevel level, TeamSelectionLobby teamSelection, BeaconBreakersMap map, BeaconBreakersConfig config) {
 		gameSpace.setActivity(activity -> {
 			TeamManager teamManager = TeamManager.addTo(activity);
 			GlobalWidgets widgets = GlobalWidgets.addTo(activity);
@@ -106,7 +105,7 @@ public class BeaconBreakersActivePhase {
 				TeamChat.addTo(activity, teamManager);
 			}
 
-			BeaconBreakersActivePhase active = new BeaconBreakersActivePhase(gameSpace, world, teamSelection, teamManager, widgets, map, config);
+			BeaconBreakersActivePhase active = new BeaconBreakersActivePhase(gameSpace, level, teamSelection, teamManager, widgets, map, config);
 
 			activity.allow(GameRuleType.BLOCK_DROPS);
 			activity.allow(GameRuleType.CRAFTING);
@@ -140,11 +139,11 @@ public class BeaconBreakersActivePhase {
 			}
 
 			for (PlayerEntry entry : team.getPlayers()) {
-				ServerPlayerEntity player = entry.getPlayer();
+				ServerPlayer player = entry.getPlayer();
 
 				if (player != null) {
 					entry.initializePlayer();
-					BeaconBreakersActivePhase.spawn(this.world, this.map, this.config.getMapConfig(), player);
+					BeaconBreakersActivePhase.spawn(this.level, this.map, this.config.getMapConfig(), player);
 				}
 			}
 		}
@@ -168,8 +167,8 @@ public class BeaconBreakersActivePhase {
 
 			this.invulnerability -= 1;
 			if (this.invulnerability == 0) {
-				this.gameSpace.getPlayers().playSound(SoundEvents.BLOCK_END_PORTAL_SPAWN, SoundCategory.PLAYERS, 1, 1);
-				this.gameSpace.getPlayers().sendMessage(Text.translatable("text.beaconbreakers.invulnerability.ended").formatted(Formatting.GOLD));
+				this.gameSpace.getPlayers().playSound(SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 1, 1);
+				this.gameSpace.getPlayers().sendMessage(Component.translatable("text.beaconbreakers.invulnerability.ended").withStyle(ChatFormatting.GOLD));
 
 				this.bar.remove();
 			}
@@ -195,8 +194,8 @@ public class BeaconBreakersActivePhase {
 		if (this.teams.size() < 2) {
 			if (this.teams.size() == 1 && this.singleplayer) return;
 
-			this.gameSpace.getPlayers().sendMessage(this.getEndingMessage().formatted(Formatting.GOLD));
-			this.ticksUntilClose = this.config.getTicksUntilClose().get(this.world.getRandom());
+			this.gameSpace.getPlayers().sendMessage(this.getEndingMessage().withStyle(ChatFormatting.GOLD));
+			this.ticksUntilClose = this.config.getTicksUntilClose().sample(this.level.getRandom());
 		}
 	}
 
@@ -204,27 +203,27 @@ public class BeaconBreakersActivePhase {
 		return this.ticksUntilClose >= 0;
 	}
 	
-	private MutableText getEndingMessage() {
+	private MutableComponent getEndingMessage() {
 		if (this.teams.size() == 1) {
 			TeamEntry winner = this.teams.iterator().next();
 			return winner.getWinMessage();
 		}
-		return Text.translatable("text.beaconbreakers.win.none");
+		return Component.translatable("text.beaconbreakers.win.none");
 	}
 
-	private void setSpectator(ServerPlayerEntity player) {
-		player.changeGameMode(GameMode.SPECTATOR);
+	private void setSpectator(ServerPlayer player) {
+		player.setGameMode(GameType.SPECTATOR);
 	}
 
 	public void applyEliminationToPlayer(PlayerEntry entry) {
-		ServerPlayerEntity player = entry.getPlayer();
+		ServerPlayer player = entry.getPlayer();
 
 		if (player != null) {
 			this.setSpectator(player);
 		}
 
 		if (!this.isGameEnding()) {
-			this.gameSpace.getPlayers().sendMessage(Text.translatable("text.beaconbreakers.eliminate", entry.getName()).formatted(Formatting.RED));
+			this.gameSpace.getPlayers().sendMessage(Component.translatable("text.beaconbreakers.eliminate", entry.getName()).withStyle(ChatFormatting.RED));
 		}
 	}
 
@@ -239,7 +238,7 @@ public class BeaconBreakersActivePhase {
 		}
 	}
 
-	private PlayerEntry getEntryFromPlayer(ServerPlayerEntity player) {
+	private PlayerEntry getEntryFromPlayer(ServerPlayer player) {
 		for (TeamEntry team : this.teams) {
 			for (PlayerEntry entry : team.getPlayers()) {
 				if (player.equals(entry.getPlayer())) {
@@ -264,21 +263,21 @@ public class BeaconBreakersActivePhase {
 	private JoinAcceptorResult onAcceptPlayers(JoinAcceptor acceptor) {
 		return acceptor.teleport(player -> {
 			if (acceptor.intent().canPlay()) {
-				PlayerEntry entry = this.getEntryByUuid(player.getId());
+				PlayerEntry entry = this.getEntryByUuid(player.id());
 
 				if (entry != null) {
-					Vec3d spawnPos = this.getRespawnPos(entry);
+					Vec3 spawnPos = this.getRespawnPos(entry);
 
 					if (spawnPos != null) {
-						return new PlayerPos(this.world, spawnPos, 0, 0);
+						return new PlayerPos(this.level, spawnPos, 0, 0);
 					}
 				}
 			}
 
-			return new PlayerPos(this.world, BeaconBreakersActivePhase.getSpawnPos(world, map, this.config.getMapConfig()), 0, 0);
+			return new PlayerPos(this.level, BeaconBreakersActivePhase.getSpawnPos(level, map, this.config.getMapConfig()), 0, 0);
 		}).thenRunForEach(player -> {
 			if (acceptor.intent().canPlay()) {
-				PlayerEntry entry = this.getEntryByUuid(player.getUuid());
+				PlayerEntry entry = this.getEntryByUuid(player.getUUID());
 
 				if (entry != null) {
 					entry.restorePlayer(player);
@@ -297,16 +296,16 @@ public class BeaconBreakersActivePhase {
 			PlayerEntry entry = this.getEntryByUuid(player);
 
 			if (offer.intent().canPlay() && entry == null) {
-				return offer.reject(GameTexts.Join.spectatorsOnly());
+				return offer.reject(GameComponents.Join.spectatorsOnly());
 			} else if (offer.intent().canSpectate() && entry != null) {
-				return offer.reject(GameTexts.Join.participantsOnly());
+				return offer.reject(GameComponents.Join.participantsOnly());
 			}
 		}
 
 		return offer.accept();
 	}
 
-	private void removePlayer(ServerPlayerEntity player) {
+	private void removePlayer(ServerPlayer player) {
 		PlayerEntry entry = this.getEntryFromPlayer(player);
 
 		if (entry != null) {
@@ -314,74 +313,74 @@ public class BeaconBreakersActivePhase {
 		}
 	}
 
-	private Vec3d getRespawnPos(PlayerEntry entry) {
+	private Vec3 getRespawnPos(PlayerEntry entry) {
 		if (!(entry.getTeam().getBeacon() instanceof BeaconPlacement.Placed placed)) {
 			return null;
 		}
 
 		BlockPos beaconPos = placed.pos();
 
-		BlockState beaconState = this.world.getBlockState(beaconPos);
-		if (!beaconState.isIn(Main.RESPAWN_BEACONS)) {
+		BlockState beaconState = this.level.getBlockState(beaconPos);
+		if (!beaconState.is(Main.RESPAWN_BEACONS)) {
 			return null;
 		}
 
-		int topY = this.world.getTopYInclusive() - 2;
+		int topY = this.level.getMaxY() - 2;
 
-		Optional<Vec3d> spawnOptional = RespawnAnchorBlock.findRespawnPosition(EntityType.PLAYER, world, beaconPos);
+		Optional<Vec3> spawnOptional = RespawnAnchorBlock.findStandUpPosition(EntityTypes.PLAYER, level, beaconPos);
 		if (spawnOptional.isPresent()) {
-			Vec3d spawn = spawnOptional.get();
-			if (spawn.getY() <= topY) {
+			Vec3 spawn = spawnOptional.get();
+			if (spawn.y() <= topY) {
 				return spawn;
 			}
 		}
 	
-		Direction direction = Direction.Type.HORIZONTAL.random(this.world.getRandom());
-		float widthOffset = beaconPos.getY() > topY ? EntityType.PLAYER.getWidth() : 0;
+		Direction direction = Direction.Plane.HORIZONTAL.getRandomDirection(this.level.getRandom());
+		float widthOffset = beaconPos.getY() > topY ? EntityTypes.PLAYER.getWidth() : 0;
 
-		double x = beaconPos.getX() + 0.5 + (direction.getOffsetX() * widthOffset);
+		double x = beaconPos.getX() + 0.5 + (direction.getStepX() * widthOffset);
 		double y = Math.min(beaconPos.getY() + 1, topY);
-		double z = beaconPos.getZ() + 0.5 + (direction.getOffsetZ() * widthOffset);
+		double z = beaconPos.getZ() + 0.5 + (direction.getStepZ() * widthOffset);
 
-		return new Vec3d(x, y, z);
+		return new Vec3(x, y, z);
 	}
 
-	private ActionResult attemptBeaconRespawn(PlayerEntry entry) {
-		Vec3d spawn = this.getRespawnPos(entry);
+	private InteractionResult attemptBeaconRespawn(PlayerEntry entry) {
+		Vec3 spawn = this.getRespawnPos(entry);
 
 		if (spawn == null) {
-			return ActionResult.FAIL;
+			return InteractionResult.FAIL;
 		}
 
-		entry.getPlayer().teleport(world, spawn.getX(), spawn.getY(), spawn.getZ(), Set.of(), 0, 0, true);
+		entry.getPlayer().teleportTo(level, spawn.x(), spawn.y(), spawn.z(), Set.of(), 0, 0, true);
 
-		return ActionResult.SUCCESS;
+		return InteractionResult.SUCCESS;
 	}
 
-	private EventResult onPlayerDamage(ServerPlayerEntity player, DamageSource source, float amount) {
+	private EventResult onPlayerDamage(ServerPlayer player, DamageSource source, float amount) {
 		return this.invulnerability > 0 || this.isGameEnding() ? EventResult.DENY : EventResult.PASS;
 	}
 
-	private EventResult onPlayerDeath(ServerPlayerEntity player, DamageSource source) {
+	private EventResult onPlayerDeath(ServerPlayer player, DamageSource source) {
 		if (this.isGameEnding()) {
-			BeaconBreakersActivePhase.spawn(this.world, this.map, this.config.getMapConfig(), player);
+			BeaconBreakersActivePhase.spawn(this.level, this.map, this.config.getMapConfig(), player);
 			return EventResult.DENY;
 		}
 
 		PlayerEntry entry = this.getEntryFromPlayer(player);
 
 		if (entry != null) {
-			if (this.world.getGameRules().getBoolean(GameRules.SHOW_DEATH_MESSAGES)) {
-				this.gameSpace.getPlayers().sendMessage(player.getDamageTracker().getDeathMessage());
+			if (this.level.getGameRules().get(GameRules.SHOW_DEATH_MESSAGES)) {
+				this.gameSpace.getPlayers().sendMessage(player.getCombatTracker().getDeathMessage());
 			}
 
 			if (!this.config.shouldKeepInventory()) {
 				entry.dropInventory(source);
 			}
 
-			if (this.attemptBeaconRespawn(entry) == ActionResult.FAIL) {
+			if (this.attemptBeaconRespawn(entry) == InteractionResult.FAIL) {
 				if (this.invulnerability > 0) {
-					BeaconBreakersActivePhase.spawn(this.world, this.map, this.config.getMapConfig(), entry.getPlayer());
+					BeaconBreakersActivePhase.spawn(this.level, this.map, this.config.getMapConfig(), entry.getPlayer());
 				} else {
 					if (this.config.shouldKeepInventory()) {
 						entry.dropInventory(source);
@@ -393,11 +392,11 @@ public class BeaconBreakersActivePhase {
 		}
 
 		player.setHealth(player.getMaxHealth());
-		player.getHungerManager().setFoodLevel(20);
-		player.setAir(player.getMaxAir());
+		player.getFoodData().setFoodLevel(20);
+		player.setAirSupply(player.getMaxAirSupply());
 
-		player.extinguish();
-		player.getDamageTracker().update();
+		player.clearFire();
+		player.getCombatTracker().recheckStatus();
 		player.fallDistance = 0;
 	
 		return EventResult.DENY;
@@ -414,10 +413,10 @@ public class BeaconBreakersActivePhase {
 			if (entry.getBeacon().isAt(pos)) {
 				entry.setBeacon(BeaconPlacement.Broken.INSTANCE);
 
-				this.gameSpace.getPlayers().playSound(SoundEvents.BLOCK_GLASS_BREAK, SoundCategory.PLAYERS, 1, 1);
+				this.gameSpace.getPlayers().playSound(SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1, 1);
 
-				MutableText message = entry.getBeaconBreakMessage(breaker, explosion);
-				this.gameSpace.getPlayers().sendMessage(message.formatted(Formatting.RED));
+				MutableComponent message = entry.getBeaconBreakMessage(breaker, explosion);
+				this.gameSpace.getPlayers().sendMessage(message.withStyle(ChatFormatting.RED));
 
 				found = true;
 				break;
@@ -429,44 +428,44 @@ public class BeaconBreakersActivePhase {
 		}
 	}
 
-	private EventResult onBreakBlock(ServerPlayerEntity player, ServerWorld world, BlockPos pos) {
+	private EventResult onBreakBlock(ServerPlayer player, ServerLevel level, BlockPos pos) {
 		PlayerEntry entry = this.getEntryFromPlayer(player);
 		if (entry == null) return EventResult.PASS;
 
-		BlockState state = world.getBlockState(pos);
+		BlockState state = level.getBlockState(pos);
 		TeamEntry team = entry.getTeam();
 
 		if (team.getBeacon().isAt(pos)) {
 			if (this.invulnerability > 0) {
 				team.setBeacon(BeaconPlacement.Unplaced.INSTANCE);
-				world.setBlockState(pos, state.getFluidState().getBlockState());
+				level.setBlockAndUpdate(pos, state.getFluidState().createLegacyBlock());
 
 				entry.giveRespawnBeacon();
 	
 				this.sidebar.update();
 			} else if (!this.config.shouldAllowSelfBreaking()) {
-				player.sendMessage(team.getCannotBreakOwnBeaconMessage().formatted(Formatting.RED), false);
+				player.sendSystemMessage(team.getCannotBreakOwnBeaconMessage().withStyle(ChatFormatting.RED), false);
 			}
 
 			return EventResult.DENY;
 		}
 
-		if (!state.isIn(Main.RESPAWN_BEACONS)) return EventResult.ALLOW;
+		if (!state.is(Main.RESPAWN_BEACONS)) return EventResult.ALLOW;
 			
 		if (this.invulnerability > 0) {
-			player.sendMessage(Text.translatable("text.beaconbreakers.cannot_break_invulnerable_beacon").formatted(Formatting.RED), false);
+			player.sendSystemMessage(Component.translatable("text.beaconbreakers.cannot_break_invulnerable_beacon").withStyle(ChatFormatting.RED), false);
 			return EventResult.DENY;
 		}
 
 		this.breakBeacon(entry, pos, false);
-		world.setBlockState(pos, state.getFluidState().getBlockState());
+		level.setBlockAndUpdate(pos, state.getFluidState().createLegacyBlock());
 
 		return EventResult.DENY;		
 	}
 
-	private void afterBlockPlace(BlockPos pos, World world, ServerPlayerEntity player, ItemStack stack, BlockState state) {
+	private void afterBlockPlace(BlockPos pos, Level level, ServerPlayer player, ItemStack stack, BlockState state) {
 		if (this.isGameEnding()) return;
-		if (!state.isIn(Main.RESPAWN_BEACONS)) return;
+		if (!state.is(Main.RESPAWN_BEACONS)) return;
 		
 		PlayerEntry entry = this.getEntryFromPlayer(player);
 		if (entry == null) return;
@@ -474,8 +473,8 @@ public class BeaconBreakersActivePhase {
 		TeamEntry team = entry.getTeam();
 
 		if (!(team.getBeacon() instanceof BeaconPlacement.Unplaced)) return;
-		if (!this.map.getBox().contains(pos)) {
-			entry.sendMessage(Text.translatable("text.beaconbreakers.cannot_place_out_of_bounds_beacon").formatted(Formatting.RED), false);
+		if (!this.map.getBox().isInside(pos)) {
+			entry.sendMessage(Component.translatable("text.beaconbreakers.cannot_place_out_of_bounds_beacon").withStyle(ChatFormatting.RED), false);
 			return;
 		}
 
@@ -483,31 +482,31 @@ public class BeaconBreakersActivePhase {
 		this.sidebar.update();
 	}
 
-	private ActionResult onUseBlock(ServerPlayerEntity player, Hand hand, BlockHitResult hitResult) {
-		if (!player.shouldCancelInteraction() || (player.getMainHandStack().isEmpty() && player.getOffHandStack().isEmpty())) {
+	private InteractionResult onUseBlock(ServerPlayer player, InteractionHand hand, BlockHitResult hitResult) {
+		if (!player.isSecondaryUseActive() || (player.getMainHandItem().isEmpty() && player.getOffhandItem().isEmpty())) {
 			BlockPos pos = hitResult.getBlockPos();
-			BlockState state = this.world.getBlockState(pos);
+			BlockState state = this.level.getBlockState(pos);
 
-			if (state.isIn(Main.RESPAWN_BEACONS)) {
+			if (state.is(Main.RESPAWN_BEACONS)) {
 				for (TeamEntry team : this.teams) {
 					if (team.getBeacon().isAt(pos)) {
 						PlayerEntry entry = this.getEntryFromPlayer(player);
-						player.sendMessage(team.getTattleMessageFor(entry), true);
+						player.sendSystemMessage(team.getTattleMessageFor(entry), true);
 
-						return ActionResult.FAIL;
+						return InteractionResult.FAIL;
 					}
 				}
 			}
 		}
 
-		return ActionResult.PASS;
+		return InteractionResult.PASS;
 	}
 
 	private EventResult onExplosionDetonated(Explosion explosion, List<BlockPos> blocksToDestroy) {
-		ServerWorld world = explosion.getWorld();
+		ServerLevel level = explosion.level();
 
-		LivingEntity causingEntity = explosion.getCausingEntity();
-		PlayerEntry entry = causingEntity instanceof ServerPlayerEntity player ? this.getEntryFromPlayer(player) : null;
+		LivingEntity causingEntity = explosion.getIndirectSourceEntity();
+		PlayerEntry entry = causingEntity instanceof ServerPlayer player ? this.getEntryFromPlayer(player) : null;
 
 		Iterator<BlockPos> iterator = blocksToDestroy.iterator();
 
@@ -515,8 +514,8 @@ public class BeaconBreakersActivePhase {
 			BlockPos pos = iterator.next();
 
 			// Ignore non-respawn beacons
-			BlockState state = world.getBlockState(pos);
-			if (!state.isIn(Main.RESPAWN_BEACONS)) continue;
+			BlockState state = level.getBlockState(pos);
+			if (!state.is(Main.RESPAWN_BEACONS)) continue;
 
 			// Prevent players from blowing up beacons during the invulnerability phase
 			if (this.invulnerability > 0) {
@@ -531,18 +530,18 @@ public class BeaconBreakersActivePhase {
 			}
 
 			this.breakBeacon(entry, pos, true);
-			world.setBlockState(pos, state.getFluidState().getBlockState());
+			level.setBlockAndUpdate(pos, state.getFluidState().createLegacyBlock());
 		}
 
 		return EventResult.PASS;
 	}
 
 	@SuppressWarnings("deprecation")
-	private EventResult onThrowItem(ServerPlayerEntity player, int slot, ItemStack stack) {
+	private EventResult onThrowItem(ServerPlayer player, int slot, ItemStack stack) {
 		if (stack.getItem() instanceof BlockItem blockItem) {
-			RegistryEntry<Block> entry = blockItem.getBlock().getRegistryEntry();
+			Holder<Block> entry = blockItem.getBlock().builtInRegistryHolder();
 			
-			if (entry.isIn(Main.RESPAWN_BEACONS)) {
+			if (entry.is(Main.RESPAWN_BEACONS)) {
 				return EventResult.DENY;
 			}
 		}
@@ -570,22 +569,22 @@ public class BeaconBreakersActivePhase {
 		return this.teams;
 	}
 
-	public static Vec3d getSpawnPos(ServerWorld world, BeaconBreakersMap map, BeaconBreakersMapConfig mapConfig) {
+	public static Vec3 getSpawnPos(ServerLevel level, BeaconBreakersMap map, BeaconBreakersMapConfig mapConfig) {
 		int x = mapConfig.getX() * 8;
 		int z = mapConfig.getZ() * 8;
 
-		int bottomY = world.getBottomY();
-		int maxY = Math.min(world.getTopYInclusive(), bottomY + world.getLogicalHeight() - 1);
+		int bottomY = level.getMinY();
+		int maxY = Math.min(level.getMaxY(), bottomY + level.getLogicalHeight() - 1);
 
-		BlockPos.Mutable pos = new BlockPos.Mutable(x, maxY, z);
-		Chunk chunk = world.getChunk(pos);
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(x, maxY, z);
+		ChunkAccess chunk = level.getChunk(pos);
 
 		int air = 0;
 
 		while (pos.getY() > bottomY) {
 			if (chunk.getBlockState(pos).isAir()) {
 				air += 1;
-			} else if (air > EntityType.PLAYER.getHeight()) {
+			} else if (air > EntityTypes.PLAYER.getHeight()) {
 				air = 0;
 				break;
 			} else {
@@ -596,14 +595,14 @@ public class BeaconBreakersActivePhase {
 		}
 
 		if (pos.getY() == bottomY) {
-			pos.setY(chunk.sampleHeightmap(Heightmap.Type.WORLD_SURFACE, x, z));
+			pos.setY(chunk.getHeight(Heightmap.Types.WORLD_SURFACE, x, z));
 		}
 
-		return new Vec3d(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5);
+		return new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5);
 	}
 
-	public static void spawn(ServerWorld world, BeaconBreakersMap map, BeaconBreakersMapConfig mapConfig, ServerPlayerEntity player) {
-		Vec3d spawnPos = BeaconBreakersActivePhase.getSpawnPos(world, map, mapConfig);
-		player.teleport(world, spawnPos.getX(), spawnPos.getY(), spawnPos.getZ(), Set.of(), 0, 0, true);
+	public static void spawn(ServerLevel level, BeaconBreakersMap map, BeaconBreakersMapConfig mapConfig, ServerPlayer player) {
+		Vec3 spawnPos = BeaconBreakersActivePhase.getSpawnPos(level, map, mapConfig);
+		player.teleportTo(level, spawnPos.x(), spawnPos.y(), spawnPos.z(), Set.of(), 0, 0, true);
 	}
 }
