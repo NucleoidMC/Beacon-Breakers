@@ -1,25 +1,24 @@
 package io.github.haykam821.beaconbreakers.game.player;
 
 import java.util.Objects;
-
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 
 public sealed interface BeaconPlacement {
 	public default boolean isAt(BlockPos pos) {
 		return false;
 	}
 
-	public Text getSidebarEntryIcon();
+	public Component getSidebarEntryIcon();
 
 	public record Unplaced() implements BeaconPlacement {
 		public static final Unplaced INSTANCE = new Unplaced();
 
-		private static final Text ICON = BeaconPlacement.createIcon("⌛", Formatting.YELLOW);
+		private static final Component ICON = BeaconPlacement.createIcon("⌛", ChatFormatting.YELLOW);
 
 		@Override
-		public Text getSidebarEntryIcon() {
+		public Component getSidebarEntryIcon() {
 			return ICON;
 		}
 
@@ -30,7 +29,7 @@ public sealed interface BeaconPlacement {
 	}
 
 	public record Placed(BlockPos pos) implements BeaconPlacement {
-		private static final Text ICON = BeaconPlacement.createIcon("✔", Formatting.GREEN);
+		private static final Component ICON = BeaconPlacement.createIcon("✔", ChatFormatting.GREEN);
 
 		public Placed(BlockPos pos) {
 			this.pos = Objects.requireNonNull(pos);
@@ -42,7 +41,7 @@ public sealed interface BeaconPlacement {
 		}
 
 		@Override
-		public Text getSidebarEntryIcon() {
+		public Component getSidebarEntryIcon() {
 			return ICON;
 		}
 
@@ -55,10 +54,10 @@ public sealed interface BeaconPlacement {
 	public record Broken() implements BeaconPlacement {
 		public static final Broken INSTANCE = new Broken();
 
-		private static final Text ICON = BeaconPlacement.createIcon("❌", Formatting.RED);
+		private static final Component ICON = BeaconPlacement.createIcon("❌", ChatFormatting.RED);
 
 		@Override
-		public Text getSidebarEntryIcon() {
+		public Component getSidebarEntryIcon() {
 			return ICON;
 		}
 
@@ -68,8 +67,8 @@ public sealed interface BeaconPlacement {
 		}
 	}
 
-	private static Text createIcon(String icon, Formatting color) {
-		return Text.literal(icon).styled(style -> {
+	private static Component createIcon(String icon, ChatFormatting color) {
+		return Component.literal(icon).withStyle(style -> {
 			return style.withColor(color).withBold(true);
 		});
 	}

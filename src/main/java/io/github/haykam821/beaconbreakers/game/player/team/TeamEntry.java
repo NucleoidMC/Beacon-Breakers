@@ -3,13 +3,12 @@ package io.github.haykam821.beaconbreakers.game.player.team;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import io.github.haykam821.beaconbreakers.game.phase.BeaconBreakersActivePhase;
 import io.github.haykam821.beaconbreakers.game.player.BeaconPlacement;
 import io.github.haykam821.beaconbreakers.game.player.PlayerEntry;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
 
 public abstract class TeamEntry {
 	private final BeaconBreakersActivePhase phase;
@@ -49,48 +48,48 @@ public abstract class TeamEntry {
 
 	// Messages
 
-	protected abstract Text getName();
+	protected abstract Component getName();
 
-	public final Text getSidebarEntryText() {
-		return Text.empty().append(this.beacon.getSidebarEntryIcon()).append(ScreenTexts.SPACE).append(this.getName());
+	public final Component getSidebarEntryText() {
+		return Component.empty().append(this.beacon.getSidebarEntryIcon()).append(CommonComponents.SPACE).append(this.getName());
 	}
 
 	protected String getBeaconBreakTranslationKey() {
 		return "text.beaconbreakers.beacon_break";
 	}
 
-	public final MutableText getBeaconBreakMessage(PlayerEntry breaker, boolean explosion) {
+	public final MutableComponent getBeaconBreakMessage(PlayerEntry breaker, boolean explosion) {
 		String translationKey = this.getBeaconBreakTranslationKey();
 		if (explosion) translationKey += ".explosion";
 
-		Text name = this.getName();
+		Component name = this.getName();
 
 		if (breaker == null) {
-			return Text.translatable(translationKey + ".unattributed", name);
+			return Component.translatable(translationKey + ".unattributed", name);
 		} else {
-			return Text.translatable(translationKey, name, breaker.getName());
+			return Component.translatable(translationKey, name, breaker.getName());
 		}
 	}
 
-	public MutableText getCannotBreakOwnBeaconMessage() {
-		return Text.translatable("text.beaconbreakers.cannot_break_own_beacon");
+	public MutableComponent getCannotBreakOwnBeaconMessage() {
+		return Component.translatable("text.beaconbreakers.cannot_break_own_beacon");
 	}
 
-	public final MutableText getTattleMessageFor(PlayerEntry entry) {
+	public final MutableComponent getTattleMessageFor(PlayerEntry entry) {
 		boolean own = entry != null && this == entry.getTeam();
 		return own ? this.getOwnTattleMessage() : this.getTattleMessage();
 	}
 
-	protected MutableText getTattleMessage() {
-		return Text.translatable("text.beaconbreakers.tattle", this.getName());
+	protected MutableComponent getTattleMessage() {
+		return Component.translatable("text.beaconbreakers.tattle", this.getName());
 	}
 
-	protected MutableText getOwnTattleMessage() {
-		return Text.translatable("text.beaconbreakers.tattle.own");
+	protected MutableComponent getOwnTattleMessage() {
+		return Component.translatable("text.beaconbreakers.tattle.own");
 	}
 
-	public MutableText getWinMessage() {
-		return Text.translatable("text.beaconbreakers.win", this.getName());
+	public MutableComponent getWinMessage() {
+		return Component.translatable("text.beaconbreakers.win", this.getName());
 	}
 
 	// Players

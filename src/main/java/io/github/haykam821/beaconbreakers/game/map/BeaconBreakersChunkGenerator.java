@@ -1,31 +1,34 @@
 package io.github.haykam821.beaconbreakers.game.map;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.ChunkRegion;
-import net.minecraft.world.HeightLimitView;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.biome.source.BiomeAccess;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.gen.StructureAccessor;
-import net.minecraft.world.gen.chunk.Blender;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
-import net.minecraft.world.gen.chunk.NoiseChunkGenerator;
-import net.minecraft.world.gen.chunk.VerticalBlockSample;
-import net.minecraft.world.gen.noise.NoiseConfig;
+import net.minecraft.server.level.WorldGenRegion;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.LevelHeightAccessor;
+import net.minecraft.world.level.NoiseColumn;
+import net.minecraft.world.level.StructureManager;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
+import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.world.level.levelgen.blending.Blender;
+import org.jspecify.annotations.Nullable;
 import xyz.nucleoid.fantasy.util.ChunkGeneratorSettingsProvider;
-import xyz.nucleoid.plasmid.api.game.world.generator.GameChunkGenerator;
+import xyz.nucleoid.plasmid.api.game.level.generator.GameChunkGenerator;
 
 public final class BeaconBreakersChunkGenerator extends GameChunkGenerator implements ChunkGeneratorSettingsProvider {
-	private static final BlockState BARRIER = Blocks.BARRIER.getDefaultState();
+	private static final BlockState BARRIER = Blocks.BARRIER.defaultBlockState();
 
 	private final BeaconBreakersMapConfig mapConfig;
 	private final ChunkGenerator chunkGenerator;
@@ -38,44 +41,37 @@ public final class BeaconBreakersChunkGenerator extends GameChunkGenerator imple
 	}
 
 	@Override
-	public ChunkGeneratorSettings getSettings() {
-		if (this.chunkGenerator instanceof NoiseChunkGenerator noiseChunkGenerator) {
-			return noiseChunkGenerator.getSettings().value();
+	public NoiseGeneratorSettings getSettings() {
+		if (this.chunkGenerator instanceof NoiseBasedChunkGenerator noiseChunkGenerator) {
+			return noiseChunkGenerator.generatorSettings().value();
 		}
 
 		return null;
 	}
 
 	private boolean isChunkPosWithinArea(ChunkPos chunkPos) {
-		return chunkPos.x >= 0 && chunkPos.z >= 0 && chunkPos.x < this.mapConfig.getX() && chunkPos.z < this.mapConfig.getZ();
+		return chunkPos.x() >= 0 && chunkPos.z() >= 0 && chunkPos.x() < this.mapConfig.getX() && chunkPos.z() < this.mapConfig.getZ();
 	}
 
-	private boolean isChunkWithinArea(Chunk chunk) {
+	private boolean isChunkWithinArea(ChunkAccess chunk) {
 		return this.isChunkPosWithinArea(chunk.getPos());
 	}
 
 	@Override
-	public CompletableFuture<Chunk> populateBiomes(NoiseConfig noiseConfig, Blender blender, StructureAccessor structures, Chunk chunk) {
+	public CompletableFuture<ChunkAccess> createBiomes(RandomState noiseConfig, Blender blender, StructureManager structures, ChunkAccess chunk) {
 		if (this.isChunkWithinArea(chunk)) {
-			return this.chunkGenerator.populateBiomes(noiseConfig, blender, structures, chunk);
+			return this.chunkGenerator.createBiomes(noiseConfig, blender, structures, chunk);
 		} else {
-			return super.populateBiomes(noiseConfig, blender, structures, chunk);
+			return super.createBiomes(noiseConfig, blender, structures, chunk);
 		}
 	}
 
 	@Override
-	public CompletableFuture<Chunk> populateNoise(Blender blender, NoiseConfig noiseConfig, StructureAccessor structures, Chunk chunk) {
+	public CompletableFuture<ChunkAccess> buildTerrain(ChunkAccess chunk, Blender blender, RandomState randomState, StructureManager structureManager, BiomeManager biomeManager, @Nullable WorldGenRegion carverBiomeRegion, Set<Holder<Biome>> possibleBiomes) {
 		if (this.isChunkWithinArea(chunk)) {
-			return this.chunkGenerator.populateNoise(blender, noiseConfig, structures, chunk);
+			return this.chunkGenerator.buildTerrain(chunk, blender, randomState, structureManager, biomeManager, carverBiomeRegion, possibleBiomes);
 		}
-		return super.populateNoise(blender, noiseConfig, structures, chunk);
-	}
-
-	@Override
-	public void buildSurface(ChunkRegion region, StructureAccessor structures, NoiseConfig noiseConfig, Chunk chunk) {
-		if (this.isChunkWithinArea(chunk)) {
-			this.chunkGenerator.buildSurface(region, structures, noiseConfig, chunk);
-		}
+		return super.buildTerrain(chunk, blender, randomState, structureManager, biomeManager, carverBiomeRegion, possibleBiomes);
 	}
 
 	@Override
@@ -84,20 +80,20 @@ public final class BeaconBreakersChunkGenerator extends GameChunkGenerator imple
 	}
 
 	@Override
-	public void generateFeatures(StructureWorldAccess world, Chunk chunk, StructureAccessor structures) {
+	public void applyBiomeDecoration(WorldGenLevel world, ChunkAccess chunk, StructureManager structures) {
 		ChunkPos chunkPos = chunk.getPos();
 		if (!this.isChunkPosWithinArea(chunkPos)) return;
 
-		this.chunkGenerator.generateFeatures(world, chunk, structures);
+		this.chunkGenerator.applyBiomeDecoration(world, chunk, structures);
 
-		int chunkX = chunkPos.x;
-		int chunkZ = chunkPos.z;
-	
+		int chunkX = chunkPos.x();
+		int chunkZ = chunkPos.z();
+
 		BlockPos pos = new BlockPos(chunkX * 16, 0, chunkZ * 16);
-		BlockPos.Mutable mutablePos = new BlockPos.Mutable();
+		BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
 
-		int bottomY = chunk.getBottomY();
-		int topY = chunk.getTopYInclusive();
+		int bottomY = chunk.getMinY();
+		int topY = chunk.getMaxY();
 
 		// Top
 		for (int x = 0; x < 16; x++) {
@@ -149,40 +145,33 @@ public final class BeaconBreakersChunkGenerator extends GameChunkGenerator imple
 	}
 
 	@Override
-	public void carve(ChunkRegion region, long seed, NoiseConfig noiseConfig, BiomeAccess access, StructureAccessor structures, Chunk chunk) {
-		if (this.isChunkWithinArea(chunk)) {
-			this.chunkGenerator.carve(region, seed, noiseConfig, access, structures, chunk);
-		}
-	}
-
-	@Override
 	public int getSeaLevel() {
 		return this.chunkGenerator.getSeaLevel();
 	}
 
 	@Override
-	public int getMinimumY() {
-		return this.chunkGenerator.getMinimumY();
+	public int getMinY() {
+		return this.chunkGenerator.getMinY();
 	}
 
 	@Override
-	public int getWorldHeight() {
-		return this.chunkGenerator.getWorldHeight();
+	public int getGenDepth() {
+		return this.chunkGenerator.getGenDepth();
 	}
 
 	@Override
-	public int getHeight(int x, int z, Heightmap.Type heightmapType, HeightLimitView world, NoiseConfig noiseConfig) {
+	public int getBaseHeight(int x, int z, Heightmap.Types heightmapType, LevelHeightAccessor world, RandomState noiseConfig) {
 		if (this.isChunkPosWithinArea(new ChunkPos(x >> 4, z >> 4))) {
-			return this.chunkGenerator.getHeight(x, z, heightmapType, world, noiseConfig);
+			return this.chunkGenerator.getBaseHeight(x, z, heightmapType, world, noiseConfig);
 		}
-		return super.getHeight(x, z, heightmapType, world, noiseConfig);
+		return super.getBaseHeight(x, z, heightmapType, world, noiseConfig);
 	}
 
 	@Override
-	public VerticalBlockSample getColumnSample(int x, int z, HeightLimitView world, NoiseConfig noiseConfig) {
+	public NoiseColumn getBaseColumn(int x, int z, LevelHeightAccessor world, RandomState noiseConfig) {
 		if (this.isChunkPosWithinArea(new ChunkPos(x >> 4, z >> 4))) {
-			return this.chunkGenerator.getColumnSample(x, z, world, noiseConfig);
+			return this.chunkGenerator.getBaseColumn(x, z, world, noiseConfig);
 		}
-		return super.getColumnSample(x, z, world, noiseConfig);
+		return super.getBaseColumn(x, z, world, noiseConfig);
 	}
 }

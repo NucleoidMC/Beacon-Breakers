@@ -1,11 +1,14 @@
 {
-	"required": true,
-	"package": "io.github.haykam821.beaconbreakers.mixin",
-	"compatibilityLevel": "JAVA_17",
-	"mixins": [
-		"BlockItemMixin"
-	],
-	"injectors": {
-		"defaultRequire": 1
+  "required": true,
+  "package": "io.github.haykam821.beaconbreakers.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "BlockItemMixin",
+    "LivingEntityAccessor",
+    "MultiNoiseBiomeSourceAccessor",
+    "PlayerAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
 	}
 }

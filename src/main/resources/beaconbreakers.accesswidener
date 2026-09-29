@@ -1,5 +1,1 @@
-accessWidener	v1	named
-accessible	method	net/minecraft/entity/LivingEntity	dropExperience	(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/Entity;)V
-accessible	method	net/minecraft/entity/player/PlayerEntity	vanishCursedItems	()V
-accessible	method	net/minecraft/entity/player/PlayerEntity	dropShoulderEntities	()V
-accessible	method	net/minecraft/world/biome/source/MultiNoiseBiomeSource	getBiomeEntries	()Lnet/minecraft/world/biome/source/util/MultiNoiseUtil$Entries;
+accessWidener	v1	official

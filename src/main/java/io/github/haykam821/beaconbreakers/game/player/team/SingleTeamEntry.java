@@ -5,11 +5,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import io.github.haykam821.beaconbreakers.game.phase.BeaconBreakersActivePhase;
 import io.github.haykam821.beaconbreakers.game.player.PlayerEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
 import xyz.nucleoid.plasmid.api.game.player.PlayerSet;
 
 public class SingleTeamEntry extends TeamEntry {
@@ -22,7 +21,7 @@ public class SingleTeamEntry extends TeamEntry {
 	// Messages
 
 	@Override
-	protected Text getName() {
+	protected Component getName() {
 		return this.player.getName();
 	}
 
@@ -54,7 +53,7 @@ public class SingleTeamEntry extends TeamEntry {
 
 	// Helpers
 
-	private static TeamEntry of(BeaconBreakersActivePhase phase, ServerPlayerEntity player) {
+	private static TeamEntry of(BeaconBreakersActivePhase phase, ServerPlayer player) {
 		TeamEntry team = new SingleTeamEntry(phase);
 		team.addPlayer(new PlayerEntry(player, team));
 
